@@ -15,6 +15,8 @@
 	You should have received a copy of the GNU General Public License
 	along with this program; if not, write to the Free Software
 	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+// deleted qtrans_createTextArea and qtrans_createTitlebarButton, joined both functions in qtrans_createExcerptEditor
 */
 
 /* Modifications Hacks to get Wordpress work the way it should */
@@ -22,13 +24,13 @@
 // modifys term form to support multilingual content
 function qtrans_modifyTermForm($id, $name, $term) {
 	global $q_config;
+	$url = plugin_dir_url(__FILE__);
+	echo "<script type=\"text/javascript\" src=\"$url"."mqtranslate.js\"></script>\n";
 	echo "<script type=\"text/javascript\">\n// <![CDATA[\r\n";
 	// ' workaround
-	if(is_object($term)&&isset($term->name)) {
-		$termname = $term->name;
-	} else {
-		$termname = "";
-	}
+	echo qtrans_JS_array_langs();
+	$termname =(is_object($term)&&isset($term->name)) ? $term->name : "";
+
 	// create input fields for each language
 	foreach($q_config['enabled_languages'] as $language) {
 		if(isset($_GET['action']) && $_GET['action']=='edit') {
@@ -120,24 +122,16 @@ function qtrans_modifyRichEditor($old_content) {
 	
 	// create editing field for selected languages
 	$cookie = (int) get_user_setting( 'ed_size' );
-	if ($cookie)
-		$str_height = "height: {$cookie}px; ";
-	else 
-		$str_height = '';
+	$str_height = ($cookie) ? "height: {$cookie}px; " : '';
 	$qt_textarea = '<textarea class="wp-editor-area" id="qtrans_textarea_'.$id.'" name="qtrans_textarea_'.$id.'" tabindex="2" cols="'.$cols.'" style="'.$str_height.'display:none" onblur="qtrans_save(this.value);"></textarea>';
 	$old_content = preg_replace('#(<textarea[^>]*>.*</textarea>)#', '$1'.$qt_textarea, $old_content);
 	
 	// do some crazy js to alter the admin view
+	$url = plugin_dir_url(__FILE__);
+	$content .="<script type=\"text/javascript\" src=\"$url"."mqtranslate.js\"></script>\n";
 	$content .="<script type=\"text/javascript\">\n// <![CDATA[\n";
-	
+	$content .= qtrans_JS_array_langs();
 	// include needed js functions
-	$content .= $q_config['js']['qtrans_is_array'];
-	$content .= $q_config['js']['qtrans_xsplit'];
-	$content .= $q_config['js']['qtrans_split'];
-	$content .= $q_config['js']['qtrans_integrate'];
-	$content .= $q_config['js']['qtrans_use'];
-	$content .= $q_config['js']['qtrans_assign'];
-	$content .= $q_config['js']['qtrans_save'];
 	$content .= $q_config['js']['qtrans_integrate_title'];
 	$content .= $q_config['js']['qtrans_get_active_language'];
 	$content .= $q_config['js']['qtrans_hook_on_tinyMCE'];
@@ -162,7 +156,7 @@ function qtrans_modifyRichEditor($old_content) {
 	$content = apply_filters('mqtranslate_toolbar', $content);
 	
 	// hide old title bar
-	$content .= "document.getElementById('titlediv').style.display='none';\n";
+	$content .= "qt_getEl('titlediv').style.display='none';\n";
 	
 	$content .="}\n";
 	$content .="// ]]>\n</script>\n";
@@ -171,9 +165,9 @@ function qtrans_modifyRichEditor($old_content) {
 	$content_append .="function qtrans_editorInit2() {\n";
 	
 	// show default language tab
-	$content_append .="document.getElementById('qtrans_select_".$q_config['default_language']."').className='wp-switch-editor switch-tmce switch-html';\n";
+	$content_append .="qt_getEl('qtrans_select_".$q_config['default_language']."').className='wp-switch-editor switch-tmce switch-html';\n";
 	// show default language
-	$content_append .="var text = document.getElementById('".$id."').value;\n";
+	$content_append .="var text = qt_getEl('".$id."').value;\n";
 	// when TinyMCE is displayed as the default editor, remove the automatically added paragraphs before initializing mqTranslate
 	$content_append .="if(getUserSetting( 'editor' ) == 'tinymce') { var text = switchEditors.pre_wpautop(text); }";
 	$content_append .="qtrans_assign('qtrans_textarea_".$id."',qtrans_use('".$q_config['default_language']."',text));\n";
@@ -189,8 +183,8 @@ function qtrans_modifyRichEditor($old_content) {
 	if($init_editor) {
 		$content_append .=$q_config['js']['qtrans_wpOnload'];
 	} else {
-		$content_append .="var qtmsg = document.getElementById('qtrans_imsg');\n";
-		$content_append .="var et = document.getElementById('wp-".$id."-editor-tools');\n";
+		$content_append .="var qtmsg = qt_getEl('qtrans_imsg');\n";
+		$content_append .="var et = qt_getEl('wp-".$id."-editor-tools');\n";
 		$content_append .="et.parentNode.insertBefore(qtmsg, et);\n";
 	}
 	$content_append = apply_filters('mqtranslate_modify_editor_js', $content_append);
@@ -201,45 +195,19 @@ function qtrans_modifyRichEditor($old_content) {
 
 function qtrans_modifyExcerpt() {
 	global $q_config;
+
 	echo "<script type=\"text/javascript\">\n// <![CDATA[\n";
 	echo "if(jQuery('#excerpt').size()>0) {";
-	echo $q_config['js']['qtrans_is_array'];
-	echo $q_config['js']['qtrans_xsplit'];
-	echo $q_config['js']['qtrans_split'];
-	echo $q_config['js']['qtrans_integrate'];
-	echo $q_config['js']['qtrans_switch_postbox'];
-	echo $q_config['js']['qtrans_use'];
 	$el = qtrans_getSortedLanguages();
 	foreach($el as $language) {
-		echo qtrans_createTitlebarButton('postexcerpt', $language, 'excerpt', 'qtrans_switcher_postexcerpt_'.$language);
-		echo qtrans_createTextArea('postexcerpt', $language, 'excerpt', 'qtrans_switcher_postexcerpt_'.$language);
+		echo "
+		qtrans_createExcerptEditor('$language', 'qtrans_switcher_postexcerpt_$language');
+		";
 	}
 	echo "qtrans_switch_postbox('postexcerpt','excerpt','".$q_config['default_language']."', false);";
 	echo "jQuery('#excerpt').hide();";
 	echo "}";
 	echo "// ]]>\n</script>\n";
-}
-
-function qtrans_createTitlebarButton($parent, $language, $target, $id) {
-	global $q_config;
-	$html = "
-		jQuery('#".$parent." .handlediv').after('<div class=\"mqtranslate_lang_div\" id=\"".$id."\"><img alt=\"".$language."\" title=\"".$q_config['language_name'][$language]."\" src=\"".WP_CONTENT_URL.'/'.$q_config['flag_location'].$q_config['flag'][$language]."\" /></div>');
-		jQuery('#".$id."').click(function() {qtrans_switch_postbox('".$parent."','".$target."','".$language."');});
-		";
-	return $html;
-}
-
-function qtrans_createTextArea($parent, $language, $target, $id) {
-	global $q_config;
-	$html = "
-		jQuery('#".$target."').after('<textarea name=\"qtrans_textarea_".$target."_".$language."\" id=\"qtrans_textarea_".$target."_".$language."\"></textarea>');
-		jQuery('#qtrans_textarea_".$target."_".$language."').attr('cols', jQuery('#".$target."').attr('cols'));
-		jQuery('#qtrans_textarea_".$target."_".$language."').attr('rows', jQuery('#".$target."').attr('rows'));
-		jQuery('#qtrans_textarea_".$target."_".$language."').attr('tabindex', jQuery('#".$target."').attr('tabindex'));
-		jQuery('#qtrans_textarea_".$target."_".$language."').blur(function() {qtrans_switch_postbox('".$parent."','".$target."',false);});
-		jQuery('#qtrans_textarea_".$target."_".$language."').val(qtrans_use('".$language."',jQuery('#".$target."').val()));
-		";
-	return $html;
 }
 
 function qtrans_insertTermInput($id,$name,$term,$language){
@@ -276,13 +244,13 @@ function qtrans_insertTermInput($id,$name,$term,$language){
 				var il = document.getElementsByTagName('input');
 				var ins = null;
 				for(var j = 0; j < il.length; j++) {
-					if(il[j].id=='".$id."') {
+					if(il[j].id=='$id') {
 						ins = il[j];
 						break;
 					}
 				}
 				if (ins != null)
-					ins.value = document.getElementById('qtrans_term_".$language."').value;
+					ins.value = qt_getEl('qtrans_term_$language').value;
 			};
 			";
 	}
@@ -296,57 +264,52 @@ function qtrans_insertTermInput($id,$name,$term,$language){
 		if (ins != null)
 			ins.parentNode.insertBefore(d,ins);
 		";
-	return $html;	
+	return $html;
 }
 
 function qtrans_insertTermInput2($id,$name,$term,$language){
 	global $q_config;
+	$lang_name=$q_config['language_name'][$language];
 	$html ="
-		var tr = document.createElement('tr');
-		var th = document.createElement('th');
-		var ll = document.createElement('label');
-		var l = document.createTextNode('".$name." (".$q_config['language_name'][$language].")');
-		var td = document.createElement('td');
-		var i = document.createElement('input');
-		var ins = document.getElementById('".$id."');
-		i.type = 'text';
-		i.id = i.name = ll.htmlFor ='qtrans_term_".$language."';
-	";
+/* {$lang_name} */
+var ll = qt_addElement('label','','".$name." (".$lang_name.")');
+var i = document.createElement('input');
+i.type = 'text';
+i.id = i.name = ll.htmlFor ='qtrans_term_".$language."';
+var th = qt_addElement('th','','',[ll]);
+th.scope = 'row';
+th.vAlign = 'top';
+var td = qt_addElement('td','','',[i]);
+var tr = qt_addElement('tr','form-field form-required','',[th,td]);
+var ins = qt_getEl('".$id."');
+";
 	if(isset($q_config['term_name'][$term][$language])) {
-	$html .="
-		i.value = '".addslashes(htmlspecialchars_decode($q_config['term_name'][$term][$language], ENT_QUOTES))."';
-		";
+		$html .="
+i.value = '".addslashes(htmlspecialchars_decode($q_config['term_name'][$term][$language], ENT_QUOTES))."';
+";
 	} else {
-	$html .="
-		i.value = ins.value;
-		";
+		$html .="
+i.value = ins.value;
+";
 	}
 	if($language == $q_config['default_language']) {
 		$html .="
-			i.onchange = function() { 
-				var il = document.getElementsByTagName('input');
-				var ins = null;
-				for(var j = 0; j < il.length; j++) {
-					if(il[j].id=='".$id."') {
-						ins = il[j];
-						break;
-					}
-				}
-				ins.value = document.getElementById('qtrans_term_".$language."').value;
-			};
-			";
+i.onchange = function() { 
+	var il = document.getElementsByTagName('input');
+	var ins = null;
+	for(var j = 0; j < il.length; j++) {
+		if(il[j].id=='".$id."') {
+			ins = il[j];
+			break;
+		}
+	}
+	ins.value = qt_getEl('qtrans_term_".$language."').value;
+};
+";
 	}
 	$html .="
-		ins = ins.parentNode.parentNode;
-		tr.className = 'form-field form-required';
-		th.scope = 'row';
-		th.vAlign = 'top';
-		ll.appendChild(l);
-		th.appendChild(ll);
-		tr.appendChild(th);
-		td.appendChild(i);
-		tr.appendChild(td);
-		ins.parentNode.insertBefore(tr,ins);
+ins = ins.parentNode.parentNode;
+ins.parentNode.insertBefore(tr,ins);
 		";
 	return $html;
 }
@@ -363,27 +326,22 @@ function qtrans_insertTitleInput($language){
 
 	$html ="
 	
-		var td = document.getElementById('titlediv');
-		var qtd = document.createElement('div');
-		var h = document.createElement('h3');
-		var l = document.createTextNode('{$title}');
+		var td = qt_getEl('titlediv');
+		var qtd = qt_addElement('div','postarea',null,null);
+		var h = qt_addElement('h3','qtrans_title','{$title}');
 		var tw = document.createElement('div');
 		var ti = document.createElement('input');
-		var slug = document.getElementById('edit-slug-box');
+		var slug = qt_getEl('edit-slug-box');
 		
 		ti.type = 'text';
-		ti.id = 'qtrans_title_".$language."';
+		ti.id = 'qtrans_title_$language';
 		ti.tabIndex = '1';
-		ti.value = qtrans_use('".$language."', document.getElementById('title').value);
+		ti.value = qtrans_use('$language', qt_getEl('title').value);
 		ti.onchange = qtrans_integrate_title;
 		ti.className = 'qtrans_title_input';
 		ti.disabled = " . (($editable) ? 'false' : 'true') . "
-		h.className = 'qtrans_title';
 		tw.className = 'qtrans_title_wrap';
-		
-		qtd.className = 'postarea';
-		
-		h.appendChild(l);
+
 		tw.appendChild(ti);
 		qtd.appendChild(h);
 		qtd.appendChild(tw);";
@@ -393,7 +351,7 @@ function qtrans_insertTitleInput($language){
 		td.parentNode.insertBefore(qtd,td);
 		
 		";
-	return $html;	
+	return $html;
 }
 
 function qtrans_createEditorToolbarButton($language, $id, $js_function = 'switchEditors.go', $label = ''){
@@ -407,13 +365,13 @@ function qtrans_createEditorToolbarButton($language, $id, $js_function = 'switch
 		$title .= ' - ' . __('Read only', 'mqtranslate');
 	
 	$html = "
-		var bc = document.getElementById('wp-".$id."-editor-tools');
-		var mb = document.getElementById('wp-".$id."-media-buttons');
+		var bc = qt_getEl('wp-".$id."-editor-tools');
+		var mb = qt_getEl('wp-".$id."-media-buttons');
 		var ls = document.createElement('a');
 		var l = document.createTextNode('{$title}');
-		ls.id = 'qtrans_select_".$language."';
+		ls.id = 'qtrans_select_$language';
 		ls.className = 'wp-switch-editor';
-		ls.onclick = function() { ".$js_function."('".$id."','".$language."'); };
+		ls.onclick = function() { ".$js_function."('$id','$language'); };
 		ls.appendChild(l);
 		bc.insertBefore(ls,mb);
 		";
