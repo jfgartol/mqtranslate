@@ -31,7 +31,7 @@ function qtrans_JS_array_langs() {
 		if (isset($q_config['language_name'][$lang])) $lang_name=$q_config['language_name'][$lang];
 		if (isset($q_config['flag'][$lang])) $flag=$q_config['flag'][$lang];
 		$jsLngs.=($jsLngs != "" ? "," : "")."'$lang':{'name':'$lang_name','flag':'$flag'}";
-		if ($cu->has_cap('edit_users') || mqtrans_currentUserCanEdit($language) || mqtrans_currentUserCanView($language)) {
+		if ($cu->has_cap('edit_users') || mqtrans_currentUserCanEdit($lang) || mqtrans_currentUserCanView($lang)) {
 			$enabledLangs.=($enabledLangs != "" ? "," : "")."'$lang':{'name':'$lang_name','flag':'$flag'}";
 		}
 	}
@@ -115,33 +115,6 @@ function qtrans_initJS() {
 		jQuery(document).ready(function() {qtrans_editorInit();});
 		";
 
-	$q_config['js']['qtrans_hook_on_tinyMCE'] = "
-		qtrans_hook_on_tinyMCE = function(id, initEditor) {
-			tinyMCEPreInit.mceInit[id].setup = function(ed) {
-				ed.on('SaveContent', function(e) {
-					if (!ed.isHidden()) {
-						e.content = e.content.replace( /<p>(<br ?\/?>|\u00a0|\uFEFF)?<\/p>/g, '<p>&nbsp;</p>' );
-						if ( ed.getParam( 'wpautop', true ) )
-							e.content = switchEditors.pre_wpautop(e.content);
-						qtrans_save(e.content);
-					}
-				});
-				ed.on('init', function(e) {
-					var content_ifr = qt_getEl('content_ifr');
-					if (!content_ifr) {
-						content_ifr = jQuery('<div id=\"content_ifr\" style=\"display: none\"></div>').appendTo('body');
-						setInterval(function() {
-							content_ifr.css('height', jQuery('#qtrans_textarea_content_ifr').css('height'));
-						}, 100);
-					}
-				});
-			};
-			
-			if (initEditor)
-				tinymce.init(tinyMCEPreInit.mceInit[id]);
-		}
-		";
-	
 	$q_config['js']['qtrans_get_active_language'] = "
 	
 		qtrans_get_active_language = function() {
