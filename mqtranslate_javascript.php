@@ -19,25 +19,25 @@
 
 // mqTranslate Javascript functions
 // paco garcia
-// creates the array of enabled languages in javascript
 function qtrans_JS_array_langs() {
 	global $q_config;
+	$cu = wp_get_current_user();
 	$defLang=$q_config['default_language'];
-	$jsLangs="";
 	$jsLngs="";
-	foreach ($q_config['enabled_languages'] as $lang) $jsLangs.=($jsLangs != "" ? "," : "")."'$lang'";
+	$enabledLangs="";
 	foreach ($q_config['enabled_languages'] as $lang){
 		$lang_name="";
 		$flag="";
 		if (isset($q_config['language_name'][$lang])) $lang_name=$q_config['language_name'][$lang];
 		if (isset($q_config['flag'][$lang])) $flag=$q_config['flag'][$lang];
 		$jsLngs.=($jsLngs != "" ? "," : "")."'$lang':{'name':'$lang_name','flag':'$flag'}";
+		if ($cu->has_cap('edit_users') || mqtrans_currentUserCanEdit($language) || mqtrans_currentUserCanView($language)) {
+			$enabledLangs.=($enabledLangs != "" ? "," : "")."'$lang':{'name':'$lang_name','flag':'$flag'}";
+		}
 	}
-	// arrLngs={"es":{"name":"Español"},"en":{"name":"English"}};
 	return "
-
-arrLangs=[$jsLangs];
 arrLngs={".$jsLngs."};
+enabledLngs={".$enabledLangs."};
 defLang='$defLang';
 flagsLoc='".WP_CONTENT_URL.'/'.$q_config['flag_location']."';
 ";
@@ -114,10 +114,7 @@ function qtrans_initJS() {
 	$q_config['js']['qtrans_wpOnload'] = "
 		jQuery(document).ready(function() {qtrans_editorInit();});
 		";
-		
-	$q_config['js']['qtrans_editorInit'] = "
-		";
-	
+
 	$q_config['js']['qtrans_hook_on_tinyMCE'] = "
 		qtrans_hook_on_tinyMCE = function(id, initEditor) {
 			tinyMCEPreInit.mceInit[id].setup = function(ed) {
